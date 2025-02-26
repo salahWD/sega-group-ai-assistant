@@ -1,9 +1,10 @@
 <?php
 
 session_start();
+$env = parse_ini_file('.env');
 
 if (isset($_SESSION["user"])) {
-  header("Location: index.php");
+  header("Location: " . $env["BASE_URL"]);
   exit();
 }
 
@@ -26,7 +27,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
       $_SESSION['user'] = $user;
 
-      header("Location: index.php");
+      header("Location: " . $env["BASE_URL"]);
       exit();
     } else {
       $stmt = $con->prepare("INSERT INTO users (username) VALUES (?)");
@@ -39,7 +40,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
       $_SESSION["user"] = $user;
 
-      header("Location: index.php");
+      header("Location: " . $env["BASE_URL"]);
       exit();
     }
   } catch (PDOException $e) {

@@ -42,23 +42,24 @@ if (!isset($user_message) || !is_string($user_message)) {
   exit;
 }
 
-$userData = json_decode(file_get_contents('data-1.json'), true);
+$userData = file_get_contents('data-1.json');
+// $userData = json_decode(file_get_contents('data-1.json'), true);
 
-function findRelevantData($question, $data) {
-  $keywords = explode(' ', strtolower($question));
-  $relevantData = [];
-  foreach ($data as $entry) {
-    foreach ($entry['keywords'] as $keyword) {
-      if (in_array(strtolower($keyword), $keywords)) {
-        $relevantData[] = $entry;
-        break;
-      }
-    }
-  }
-  return $relevantData;
-}
+// function findRelevantData($question, $data) {
+//   $keywords = explode(' ', strtolower($question));
+//   $relevantData = [];
+//   foreach ($data as $entry) {
+//     foreach ($entry['keywords'] as $keyword) {
+//       if (in_array(strtolower($keyword), $keywords)) {
+//         $relevantData[] = $entry;
+//         break;
+//       }
+//     }
+//   }
+//   return $relevantData;
+// }
 
-$relevantData = findRelevantData($user_message, $userData);
+// $relevantData = findRelevantData($user_message, $userData);
 
 function storeTextToFile($text, $filename) {
   try {
@@ -77,9 +78,9 @@ function storeTextToFile($text, $filename) {
 }
 
 $fileName = "log.txt";
-
+// storeTextToFile($user_message . "\n" . json_encode($relevantData), $fileName);
 // Prepare the system prompt with JSON data
-$systemPrompt = "You are an AI that embodies the information in the following JSON data. Make your answers short. Speak as if this information is about you personally. For example, if the data says 'my name is Sega AI Assistant', you should respond with 'I am Sega AI Assistant'.\n" . json_encode($relevantData) . "\nUse this data to answer the user's questions in a first-person perspective.";
+$systemPrompt = "You are an AI that embodies the information in the following JSON data. Make your answers short.\n" . $userData . "\nUse this data to answer the user's questions in a first-person perspective.";
 
 // Prepare the request payload
 $messages = [
@@ -129,7 +130,7 @@ if ($httpCode === 200) {
   $responseData = json_decode($response, true);
   if (isset($responseData['choices'][0]['message']['content'])) {
     echo json_encode(['text' => $responseData['choices'][0]['message']['content']]);
-    storeTextToFile($user_message . "\n" . $responseData['choices'][0]['message']['content'], $fileName);
+    storeTextToFile("\n" . $user_message . "\n" . $responseData['choices'][0]['message']['content'] . "\n===========================", $fileName);
   } else {
     http_response_code(500);
     echo json_encode(['error' => 'Invalid response from OpenAI API']);

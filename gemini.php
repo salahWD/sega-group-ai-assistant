@@ -42,24 +42,24 @@ if (!isset($user_message) || !is_string($user_message)) {
   exit;
 }
 
-$userData = json_decode(file_get_contents('data-1.json'), true);
-// $userData = file_get_contents('data-1.json');
+$userData = file_get_contents('data-1.json');
+// $userData = json_decode(file_get_contents('data-1.json'), true);
 
-function findRelevantData($question, $data) {
-  $keywords = explode(' ', strtolower($question));
-  $relevantData = [];
-  foreach ($data as $entry) {
-    foreach ($entry['keywords'] as $keyword) {
-      if (in_array(strtolower($keyword), $keywords)) {
-        $relevantData[] = $entry; // Return the whole entry, not just the fact
-        break;
-      }
-    }
-  }
-  return $relevantData;
-}
+// function findRelevantData($question, $data) {
+//   $keywords = explode(' ', strtolower($question));
+//   $relevantData = [];
+//   foreach ($data as $entry) {
+//     foreach ($entry['keywords'] as $keyword) {
+//       if (in_array(strtolower($keyword), $keywords)) {
+//         $relevantData[] = $entry; // Return the whole entry, not just the fact
+//         break;
+//       }
+//     }
+//   }
+//   return $relevantData;
+// }
 
-$relevantData = findRelevantData($user_message, $userData); // Use the whole entry
+// $relevantData = findRelevantData($user_message, $userData); // Use the whole entry
 
 function storeTextToFile($text, $filename) {
   try {
@@ -80,16 +80,16 @@ function storeTextToFile($text, $filename) {
 $fileName = "log.txt";
 
 // Prepare the system prompt with JSON data
-$systemPrompt = "You are an AI that embodies the information in the following JSON data. Make your answers short. Speak as if this information is about you personally. For example, if the data says 'my name is Sega AI Assistant', you should respond with 'I am Sega Ai Assistant'.\n" . /* $userData */ json_encode($relevantData) . "\nUse this data to answer the user's questions in a first-person perspective.";
+$systemPrompt = "You are an AI that embodies the information in the following JSON data. Make your answers short.\n" . $userData /* json_encode($relevantData) */ . "\nUse this data to answer the user's questions in a first-person perspective.";
 
 // Your Gemini API key (keep this secure)
 $env = parse_ini_file('.env');
 $geminiApiKey = $env["GEMINI_KEY"];
 
 // Gemini API endpoint
-$url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$geminiApiKey";
+// $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$geminiApiKey";
 // $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=$geminiApiKey";
-// $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=$geminiApiKey";
+$url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=$geminiApiKey";
 
 // Prepare the request payload
 $payload = [
@@ -140,7 +140,7 @@ if ($httpCode === 200) {
   $responseData = json_decode($response, true);
   if (isset($responseData['candidates'][0]['content']['parts'][0]['text'])) {
     echo json_encode(['text' => $responseData['candidates'][0]['content']['parts'][0]['text']]);
-    storeTextToFile($user_message . "\n" . $responseData['candidates'][0]['content']['parts'][0]['text'], $fileName);
+    storeTextToFile("Gemini \n" . $user_message . "\n" . $responseData['candidates'][0]['content']['parts'][0]['text'] . "\n===========================", $fileName);
   } else {
     http_response_code(500);
     echo json_encode(['error' => 'Invalid response from Gemini API']);

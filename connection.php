@@ -4,10 +4,11 @@ function get_connection() {
   if (!empty($con)) {
     return $con;
   } else {
+    $env = parse_ini_file('.env');
     $servername = "localhost";
-    $username = "root";
-    $password = "";
-    $dbname = "sega-ai";
+    $username = $env["DB_USERNAME"];
+    $password = $env["DB_PASS"];
+    $dbname = $env["DB_NAME"];
 
     try {
       $con = new PDO("mysql:host=" . $servername . ";dbname=" . $dbname . ";charset=utf8", $username, $password);

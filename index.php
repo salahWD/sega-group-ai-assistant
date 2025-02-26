@@ -2,6 +2,8 @@
 
 
 $URL = [];
+$env = parse_ini_file('.env');
+
 if (isset($_GET["url"]) && !empty($_GET["url"])) {
   $URL = explode("/", $_GET["url"]);
 }
@@ -16,7 +18,7 @@ if (isset($URL[0]) && $URL[0] == "store") {
 
   session_start();
   if (!isset($_SESSION["user"])) {
-    header("Location: login.php");
+    header("Location: " . $env["BASE_URL"] . "/login.php");
     exit();
   }
 
@@ -49,7 +51,10 @@ if (isset($URL[0]) && $URL[0] == "store") {
 
   <body>
     <div class="container">
-      <h1 class="mt-5">Sega AI Assistant</h1>
+      <div class="flex-row mt-5">
+        <h1>Sega AI Assistant</h1>
+        <a class="logout" href="<?= $env["BASE_URL"] ?>logout.php">logout</a>
+      </div>
       <hr />
       <div id="mycustomchat"></div>
     </div>

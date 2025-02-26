@@ -7,21 +7,10 @@ $.ajax({
   let res = JSON.parse(response);
 
   new SaBox("#mycustomchat", {
-    // storeURL: window.location.href + "/store", // store messages end-point
+    storeURL: window.location.href + "/store", // store messages end-point
     position: 2, // 1 => fixed | 2 => static
-    // apiEndPoint: window.location.href + "/gemini",
-    apiEndPoint: window.location.href + "/chatGPT",
+    apiEndPoint: window.location.href + "/gemini",
+    // apiEndPoint: window.location.href + "/chatGPT",
     messages: res || [],
   });
-
-  // chat1.on("message", function (user, msg) {
-  //   console.log(msg);
-  // });
-
-  // chat1.on("message:received", function (el, msg) {
-  //   console.log("chat", el, msg);
-  // });
-  // chat1.on("message:sent", function (el, msg) {
-  //   console.log("me", el, msg);
-  // });
 });

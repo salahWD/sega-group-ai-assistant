@@ -1,5 +1,6 @@
 <?php
 session_start();
 session_destroy();
-header("Location: index.php");
+$env = parse_ini_file('.env');
+header("Location: " . $env["BASE_URL"]);
 exit();
