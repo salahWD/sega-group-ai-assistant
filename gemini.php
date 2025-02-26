@@ -1,12 +1,11 @@
 <?php
-
 session_start();
 
 header('Content-Type: application/json');
 
 if (!isset($_SESSION["user"])) {
   http_response_code(404);
-  echo json_encode(['error' => 'Authentication Required !']);
+  echo json_encode(['error' => 'Authentication Required!']);
   exit;
 }
 
@@ -19,21 +18,22 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 require_once "./connection.php";
 
+// Load OAuth credentials from a secure location
+$credentials = json_decode(file_get_contents('client_secret.json'), true);
+$client_id = $credentials['web']['client_id'];
+$client_secret = $credentials['web']['client_secret'];
+$redirect_uri = 'https://sega-ai.salahbakhash.com/callback.php';
+
 // Get the raw POST data
 $input = file_get_contents('php://input');
 $data = json_decode($input, true);
 $user_message = $data["message"];
 
+// Database connection for history
 $con = get_connection();
-
 $stmt = $con->prepare("SELECT * FROM messages WHERE user_id = ?");
 $stmt->execute([$_SESSION["user"]["id"]]);
-
-$history = [];
-
-if ($stmt->rowCount() > 0) {
-  $history = $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
+$history = $stmt->rowCount() > 0 ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
 
 // Validate the input
 if (!isset($user_message) || !is_string($user_message)) {
@@ -42,25 +42,6 @@ if (!isset($user_message) || !is_string($user_message)) {
   exit;
 }
 
-$userData = file_get_contents('data-1.json');
-// $userData = json_decode(file_get_contents('data-1.json'), true);
-
-// function findRelevantData($question, $data) {
-//   $keywords = explode(' ', strtolower($question));
-//   $relevantData = [];
-//   foreach ($data as $entry) {
-//     foreach ($entry['keywords'] as $keyword) {
-//       if (in_array(strtolower($keyword), $keywords)) {
-//         $relevantData[] = $entry; // Return the whole entry, not just the fact
-//         break;
-//       }
-//     }
-//   }
-//   return $relevantData;
-// }
-
-// $relevantData = findRelevantData($user_message, $userData); // Use the whole entry
-
 function storeTextToFile($text, $filename) {
   try {
     $file = fopen($filename, 'a');
@@ -68,9 +49,8 @@ function storeTextToFile($text, $filename) {
       fwrite($file, $text . PHP_EOL);
       fclose($file);
       return true;
-    } else {
-      return false;
     }
+    return false;
   } catch (Exception $e) {
     error_log("Error storing text to file: " . $e->getMessage());
     return false;
@@ -79,54 +59,78 @@ function storeTextToFile($text, $filename) {
 
 $fileName = "log.txt";
 
-// Prepare the system prompt with JSON data
-$systemPrompt = "You are an AI that embodies the information in the following JSON data. Make your answers short.\n" . $userData /* json_encode($relevantData) */ . "\nUse this data to answer the user's questions in a first-person perspective.";
+// Function to get or refresh OAuth access token
+function getAccessToken($client_id, $client_secret, $redirect_uri) {
+  $token_file = 'token.json';
+  if (file_exists($token_file)) {
+    $token_data = json_decode(file_get_contents($token_file), true);
+    if ($token_data['expires_in'] > time()) {
+      return $token_data['access_token'];
+    }
+  }
 
-// Your Gemini API key (keep this secure)
-$env = parse_ini_file('.env');
-$geminiApiKey = $env["GEMINI_KEY"];
+  // If no valid token, redirect to OAuth flow (simplified here)
+  $auth_url = "https://accounts.google.com/o/oauth2/v2/auth?scope=https://www.googleapis.com/auth/generative-language&access_type=offline&response_type=code&client_id=$client_id&redirect_uri=$redirect_uri";
+  if (!isset($_GET['code'])) {
+    header("Location: $auth_url");
+    exit;
+  }
 
-// Gemini API endpoint
-// $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$geminiApiKey";
-// $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=$geminiApiKey";
-$url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=$geminiApiKey";
+  // Exchange code for token
+  $code = $_GET['code'];
+  $token_url = "https://oauth2.googleapis.com/token";
+  $post_data = [
+    'code' => $code,
+    'client_id' => $client_id,
+    'client_secret' => $client_secret,
+    'redirect_uri' => $redirect_uri,
+    'grant_type' => 'authorization_code'
+  ];
+
+  $ch = curl_init($token_url);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+  curl_setopt($ch, CURLOPT_POST, true);
+  curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($post_data));
+  $response = curl_exec($ch);
+  curl_close($ch);
+
+  $token_data = json_decode($response, true);
+  $token_data['expires_in'] = time() + $token_data['expires_in'];
+  file_put_contents($token_file, json_encode($token_data));
+  return $token_data['access_token'];
+}
+
+// Get the access token
+$access_token = getAccessToken($client_id, $client_secret, $redirect_uri);
+
+// Gemini API endpoint for tuned model (no API key, use OAuth token)
+// $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=$geminiApiKey";
+$url = "https://generativelanguage.googleapis.com/v1beta/models/tunedModels/segaaiassistant-39lez6wm4ll4:generateContent";
 
 // Prepare the request payload
 $payload = [
-  'contents' => [
+  "contents" => [
     [
-      'role' => 'user',
-      'parts' => [
-        ['text' => $systemPrompt],
-      ],
-    ],
+      "role" => "user",
+      "parts" => [["text" => $user_message]]
+    ]
   ],
+  "generationConfig" => [
+    "temperature" => 1,
+    "topK" => 40,
+    "topP" => 0.95,
+    "maxOutputTokens" => 1000,
+    "responseMimeType" => "text/plain"
+  ]
 ];
 
-if ($history) {
-  foreach ($history as $message) {
-    $payload['contents'][] = [
-      'role' => $message['sender'] == 1 ? "user" : "model",
-      'parts' => [
-        ['text' => $message['message']],
-      ],
-    ];
-  }
-}
-
-$payload['contents'][] = [
-  'role' => "user",
-  'parts' => [
-    ['text' => $user_message],
-  ],
-];
-
-// Initialize cURL
+// Initialize cURL with OAuth token
 $ch = curl_init($url);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_POST, true);
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
   'Content-Type: application/json',
+  "Authorization: Bearer $access_token"
 ]);
 curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
 
@@ -139,8 +143,9 @@ curl_close($ch);
 if ($httpCode === 200) {
   $responseData = json_decode($response, true);
   if (isset($responseData['candidates'][0]['content']['parts'][0]['text'])) {
-    echo json_encode(['text' => $responseData['candidates'][0]['content']['parts'][0]['text']]);
-    storeTextToFile("Gemini \n" . $user_message . "\n" . $responseData['candidates'][0]['content']['parts'][0]['text'] . "\n===========================", $fileName);
+    $response_text = $responseData['candidates'][0]['content']['parts'][0]['text'];
+    echo json_encode(['text' => $response_text]);
+    storeTextToFile("Gemini \n$user_message\n$response_text\n===========================", $fileName);
   } else {
     http_response_code(500);
     echo json_encode(['error' => 'Invalid response from Gemini API']);

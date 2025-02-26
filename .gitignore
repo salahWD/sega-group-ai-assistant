@@ -1,3 +1,4 @@
 .env
 log.txt
 models.txt
+client_secret.json

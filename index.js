@@ -7,7 +7,7 @@ $.ajax({
   let res = JSON.parse(response);
 
   new SaBox("#mycustomchat", {
-    storeURL: window.location.href + "/store", // store messages end-point
+    // storeURL: window.location.href + "/store", // store messages end-point
     position: 2, // 1 => fixed | 2 => static
     apiEndPoint: window.location.href + "/gemini",
     // apiEndPoint: window.location.href + "/chatGPT",
